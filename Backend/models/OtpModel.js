@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import mailSender from "../utils/mailsender.js"; // Import mail sender utility
+import mailSender from "../utils/mailsender.js";
 
 const otpSchema = new mongoose.Schema({
   email: {
@@ -12,9 +12,39 @@ const otpSchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: Date.now,
-    expires: 5 * 60, // OTP expires in 5 minutes (time is in seconds)
+    default: Date.now(),
+    expires: 5 * 60000,
   },
 });
 
-export const Otp = mongoose.model("Otp", otpSchema);
+const sendVerificationMail = async (email, otp) => {
+  try {
+    const title = "Verification mail from MNNIT Complaint Portal";
+    const body = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; text-align: center;">
+      <h1 style="color: #4CAF50; font-size: 28px; margin-bottom: 20px;">MNNIT Complaint Portal</h1>
+      <p style="color: #555; font-size: 16px; margin-bottom: 20px;">To verify your email and create your account, enter the OTP:</p>
+      <div style="background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        <h2 style="color: #FFC107; font-size: 24px; margin-bottom: 20px;">OTP: <span style="color: #FFC107; background-color: #333; padding: 5px 10px; border-radius: 5px;">${otp}</span></h2>
+        <p style="color: #555; font-size: 16px; margin-bottom: 20px;">Please use this OTP to verify your email and proceed with your complaint registration.</p>
+      </div>
+      <p style="color: #888; font-size: 14px; margin-top: 20px;">MNNIT Complaint Portal Team</p>
+    </div>
+    `;
+
+    const mailResponse = await mailSender(email, title, body);
+    // console.log(`otp send successfully `, mailResponse);
+  } catch (error) {
+    console.log("otp sending error", error);
+    throw error;
+  }
+};
+
+// .pre => first it will send the mail to user mail id
+// if there is no error then it will save the otp in our database
+otpSchema.pre("save", async function (next) {
+  await sendVerificationMail(this.email, this.otp);
+  next();
+});
+
+export default mongoose.model("Otp", otpSchema);
